@@ -36,6 +36,7 @@ countIDLE = 0
 
 totalflow = 0
 PWMstarted = 0
+suctionEMPTY = 0
 
 def countPulse(channel):
    global count
@@ -91,9 +92,36 @@ while True:
             file.write(",%f,%f\n" % (flow,totalflow))
             file.close()
 
-        if stepf >= 60 and PWMstarted == 0:
+        if (currenthour >= 9) & (currentminute >= 55) & (suctionEMPTY == 1):
+            GPIO.output(stepperDIR, GPIO.LOW) #direction (low for tank to fixture)
+            time.sleep(0.25)
             GPIO.output(stepperENABLE, GPIO.LOW)
+            time.sleep(0.25)
+            PWM.start(stepperSTEP, 25, 250, 1)
+            time.sleep(6.1)
+            PWM.stop(stepperSTEP)
+            PWM.cleanup()
+            GPIO.output(stepperENABLE, GPIO.HIGH)
+            suctionEMPTY = 0
+
+        if (currenthour <= 9) & (currentminute <= 55) & (suctionEMPTY == 0):
+            GPIO.output(stepperDIR, GPIO.HIGH) #direction (high for fixture to tank)
+            time.sleep(0.25)
+            GPIO.output(stepperENABLE, GPIO.LOW)
+            time.sleep(0.25)
+            PWM.start(stepperSTEP, 25, 250, 1)
+            time.sleep(6.1)
+            PWM.stop(stepperSTEP)
+            PWM.cleanup()
+            GPIO.output(stepperENABLE, GPIO.HIGH)
+            suctionEMPTY = 1
+            
+        if stepf >= 60 and PWMstarted == 0:
+            GPIO.output(stepperDIR, GPIO.LOW)
+            GPIO.output(stepperENABLE, GPIO.LOW)
+            time.sleep(0.25)
             PWM.start(stepperSTEP, 50, stepf, 1)
+            time.sleep(0.25)
             PWMstarted = 1
             countIDLE = 0
             #open file to append
@@ -125,6 +153,7 @@ while True:
 
         elif stepf < 60 and PWMstarted == 1:
             PWM.stop(stepperSTEP)
+            time.sleep(0.25)
             PWM.cleanup()
             GPIO.output(stepperENABLE, GPIO.HIGH)
             PWMstarted = 0
