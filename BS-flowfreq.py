@@ -2,6 +2,9 @@
 import Adafruit_BBIO.GPIO as GPIO
 import Adafruit_BBIO.PWM as PWM
 import time, sys
+import os.path
+
+fixture = "BATHROOM_SINK"
 
 stepperDIR = 'P8_7' #selected according to pump configuration
 stepperSTEP = 'P9_16' #controlled by PWM
@@ -22,18 +25,12 @@ now=time.localtime(time.time())
 currentmonth=now.tm_mon
 currentday=now.tm_mday
 currentyear=now.tm_year
-filename = "{0}_{1}_{2}_BATHROOM_SINK-flow.csv".format(currentyear, currentmonth, currentday)
-
-#### informative messaging for starting storage file
-print "Opening ",filename, " for appending..."
-print "reading analog inputs and storing data..."
-file=open(filename,"a")
-file.write("Time,Flow,TotalFlow\n")
-file.close()
+filename = "{0}_{1}_{2}_{3}-flow.csv".format(currentyear, currentmonth, currentday, fixture)
 
 global count
 global countIDLE
 
+restart = True
 count = 0
 countIDLE = 0
 
@@ -55,17 +52,44 @@ while True:
         currentmonth=now.tm_mon
         currentday=now.tm_mday
         currentyear=now.tm_year
+        currenthour=now.tm_hour
+        currentminute=now.tm_min
+        currentsecond=now.tm_sec
 
         start_counter = 1
         count=0
         time.sleep(1)
         start_counter = 0
         flow = count * 60.0 / 2200.0
-	if flow >= 4.1: #set maximum flow to restrict miscalculation associated with electrical noise acceptable due to pd pump
-		flow = 4.1
+        if flow >= 4.1: #set maximum flow to restrict miscalculation associated with electrical noise acceptable due to pd pump
+            flow = 4.1
         stepf = flow * 0.02 * 1000 / 60 / 2.36 * 200
         totalflow = totalflow + flow/60
         print '%s%f\t%s%f\t%s%f' % ( "Flow (LPM): ",flow,"Step rate (Hz): ",stepf,"Total Flow (L):",totalflow) #comment out if debugging complete
+
+        if (os.path.isfile(filename) and restart):
+            #restart ensures that it will only execute this once.
+            restart = False
+            #restarting the file
+            file = open(filename)
+            #grab last non-blank line
+            last = None
+            for line in (line for line in file if line.rstrip('\n')):
+                last = line
+            #set totalflow to last known value
+            totalflow = float(last.split(",")[2])
+        elif not (os.path.isfile(filename)):
+            #Initial and daily startup
+            totalflow = 0
+            file=open(filename,"a")
+            #informative messaging for starting storage file
+            print "Opening ",filename, " for appending..."
+            print "reading analog inputs and storing data..."
+            file.write("Time,Flow,TotalFlow\n")
+            #add first column date/time stamp
+            file.write(pt)
+            file.write(",%f,%f\n" % (flow,totalflow))
+            file.close()
 
         if stepf >= 60 and PWMstarted == 0:
             GPIO.output(stepperENABLE, GPIO.LOW)
@@ -82,7 +106,7 @@ while True:
             #if MM/DD/YR changes, update filename
             #this translates to a new file every day
             ##!!!!header row is dropped from subsequent days
-            filename = "{0}_{1}_{2}_BATHROOM_SINK-flow.csv".format(currentyear, currentmonth, currentday)
+            filename = "{0}_{1}_{2}_{3}-flow.csv".format(currentyear, currentmonth, currentday, fixture)
 
         elif stepf >= 60 and PWMstarted == 1:
             PWM.set_frequency(stepperSTEP, stepf)
@@ -97,7 +121,7 @@ while True:
             #if MM/DD/YR changes, update filename
             #this translates to a new file every day
             ##!!!!header row is dropped from subsequent days
-            filename = "{0}_{1}_{2}_BATHROOM_SINK-flow.csv".format(currentyear, currentmonth, currentday)
+            filename = "{0}_{1}_{2}_{3}-flow.csv".format(currentyear, currentmonth, currentday, fixture)
 
         elif stepf < 60 and PWMstarted == 1:
             PWM.stop(stepperSTEP)
@@ -107,7 +131,7 @@ while True:
 
         else:
             countIDLE = countIDLE+1
-            #print countIDLE
+            # print countIDLE
 
             if countIDLE == 900:
                 countIDLE = 0
@@ -121,7 +145,7 @@ while True:
                 #if MM/DD/YR changes, update filename
                 #this translates to a new file every day
                 ##!!!!header row is dropped from subsequent days
-                filename = "{0}_{1}_{2}_BATHROOM_SINK-flow.csv".format(currentyear, currentmonth, currentday)
+                filename = "{0}_{1}_{2}_{3}-flow.csv".format(currentyear, currentmonth, currentday, fixture)
 
         #else:
             #stepf < 5 and PWMstarted == 0 is do nothing
