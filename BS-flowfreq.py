@@ -92,7 +92,7 @@ while True:
             file.write(",%f,%f\n" % (flow,totalflow))
             file.close()
 
-        if (currenthour >= 9) & (currentminute >= 55) & (suctionEMPTY == 1):
+        if (currenthour >= 11) & (currentminute >= 55) & (suctionEMPTY == 1):
             GPIO.output(stepperDIR, GPIO.LOW) #direction (low for tank to fixture)
             time.sleep(0.25)
             GPIO.output(stepperENABLE, GPIO.LOW)
@@ -104,7 +104,7 @@ while True:
             GPIO.output(stepperENABLE, GPIO.HIGH)
             suctionEMPTY = 0
 
-        if (currenthour < 9) & (currentminute < 55) & (suctionEMPTY == 0):
+        if (currenthour < 11) & (currentminute < 55) & (suctionEMPTY == 0):
             GPIO.output(stepperDIR, GPIO.HIGH) #direction (high for fixture to tank)
             time.sleep(0.25)
             GPIO.output(stepperENABLE, GPIO.LOW)
